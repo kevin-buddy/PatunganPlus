@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 int cartCounter = 0;
 String counterCart = '';
+int tabActive = 0;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Selamat Datang'),
+        title: const Text('Split Bill'),
         leading: const Icon(Icons.supervised_user_circle),
         actions: [
           InkWell(
@@ -58,31 +59,92 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 11),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(8.0),
-        itemCount: listMaterial.length,
-        itemBuilder: (context, index) {
-          return Card(
-            elevation: 4.0,
-            child: ListTile(
-              leading: Image.network('https://picsum.photos/200'),
-              title: Text(listMaterial[index]['title']),
-              subtitle: Text(listMaterial[index]['subttitle']),
-              trailing: FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pushNamed(
-                    'detail-bill-screen',
-                    arguments: {
-                      'title': listMaterial[index]['title'],
-                      'subttitle': listMaterial[index]['subttitle'],
-                    },
-                  );
-                },
-                child: const Text('See Detail'),
+      body: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => setState(() => tabActive = 0),
+                  style: TextButton.styleFrom(
+                    backgroundColor: tabActive == 0
+                        ? Colors.grey
+                        : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Active',
+                    style: TextStyle(color: Color(0xFF007AFF)),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => setState(() => tabActive = 1),
+                  style: TextButton.styleFrom(
+                    backgroundColor: tabActive == 1
+                        ? Colors.grey
+                        : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Active',
+                    style: TextStyle(color: Color(0xFF007AFF)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              'YOU HAVE 14 ACTIVE BILLS',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
               ),
             ),
-          );
-        },
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(8.0),
+              itemCount: listMaterial.length,
+              itemBuilder: (context, index) {
+                return Card(
+                  elevation: 4.0,
+                  child: ListTile(
+                    leading: Image.network('https://picsum.photos/200'),
+                    title: Text(listMaterial[index]['title']),
+                    subtitle: Text(listMaterial[index]['subttitle']),
+                    trailing: FilledButton(
+                      onPressed: () {
+                        Navigator.of(context).pushNamed(
+                          'detail-bill-screen',
+                          arguments: {
+                            'title': listMaterial[index]['title'],
+                            'subttitle': listMaterial[index]['subttitle'],
+                          },
+                        );
+                      },
+                      child: const Text('See Detail'),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        shape: CircleBorder(),
+        backgroundColor: const Color.fromARGB(255, 71, 216, 78),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

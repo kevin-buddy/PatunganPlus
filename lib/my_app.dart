@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
         appBar: AppBar(title: const Text("Hello World")),
         body: const GradientWidget(),
       ),
-      initialRoute: 'dice-screen',
+      initialRoute: 'home-screen',
       routes: {
         'login-screen': (context) => const LoginScreen(),
         'otp-screen': (context) => const OtpScreen(),
