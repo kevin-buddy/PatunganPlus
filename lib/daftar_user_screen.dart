@@ -10,9 +10,7 @@ class DaftarUserScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Daftar user'),
-      ),
+      appBar: AppBar(title: const Text('Daftar user')),
       body: FutureBuilder(
         future: getDataUser(),
         builder: (context, snapshot) {
@@ -24,14 +22,15 @@ class DaftarUserScreen extends StatelessWidget {
             return const Text('Terjadi keasalahan');
           }
           return ListView.builder(
-              itemCount: snapshot.data?.length,
-              itemBuilder: (context, index) {
-                var singleData = snapshot.data?[index];
-                return ListTile(
-                  title: Text(singleData['title']),
-                  subtitle: Text(singleData['body']),
-                );
-              });
+            itemCount: snapshot.data?.length,
+            itemBuilder: (context, index) {
+              var singleData = snapshot.data?[index];
+              return ListTile(
+                title: Text(singleData['title']),
+                subtitle: Text(singleData['body']),
+              );
+            },
+          );
         },
       ),
     );
