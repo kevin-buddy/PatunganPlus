@@ -5,13 +5,14 @@ import 'package:patungan_plus/daftar_user_screen.dart';
 import 'package:patungan_plus/detail_material_screen.dart';
 import 'package:patungan_plus/dice_screen.dart';
 import 'package:patungan_plus/gradient_widget.dart';
-// import 'package:patungan_plus/home_screen.dart';
-import 'package:patungan_plus/tmp_home_screen.dart';
+// import 'package:patungan_plus/old_home_screen.dart';
 import 'package:patungan_plus/list_buah_screen.dart';
 import 'package:patungan_plus/login_screen.dart';
 import 'package:patungan_plus/otp_screen.dart';
 import 'package:patungan_plus/success_checkout_screen.dart';
 import 'package:patungan_plus/detail_bill_screen.dart';
+import 'package:patungan_plus/home_screen.dart';
+import 'package:patungan_plus/detail_split_bill_screen.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -26,9 +27,10 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: 'home-screen',
       routes: {
+        'home-screen': (context) => const HomeScreen(),
+        'detail-split-bill': (context) => const DetailSplitBillScreen(),
         'login-screen': (context) => const LoginScreen(),
         'otp-screen': (context) => const OtpScreen(),
-        'home-screen': (context) => const HomeScreen(),
         'detail-material-screen': (context) => const DetailMaterialScreen(),
         'checkout-screen': (context) => const CheckoutScreen(),
         'success-checkout-screen': (context) => const SuccessCheckoutScreen(),
