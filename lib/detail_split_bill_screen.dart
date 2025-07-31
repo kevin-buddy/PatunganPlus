@@ -32,13 +32,18 @@ class DetailSplitBillScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              // buildBillHeader(bill: bill),
+              buildBillHeader(
+                args['title'],
+                args['date'],
+                args['members'],
+                args['total'],
+              ),
               const SizedBox(height: 24),
-              // _ParticipantsSection(participants: bill.participants),
+              buildParticipantsSection(args['members']),
               const SizedBox(height: 16),
               const Divider(thickness: 4, color: Color(0xFFF5F5F5)),
               const SizedBox(height: 16),
-              // _SplitResultSection(participants: bill.participants),
+              buildSplitResultSection(args['members']),
             ],
           ),
         ),
@@ -46,100 +51,226 @@ class DetailSplitBillScreen extends StatelessWidget {
     );
   }
 
-  Widget buildBillHeader(
-    billTitle,
-    billdate,
-    billMembers,
-    billTotal,
-    billItems,
-  ) {
+  Widget buildBillHeader(billTitle, billDate, billMembers, billTotal) {
     // final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'IDR ', decimalDigits: 0);
     // final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-    return Card(
-      elevation: 1,
-      // shadowColor: Colors.black12,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Colors.grey, width: 0.5),
-      ),
-      // color: Colors.black,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      billTitle,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      billdate.toString(),
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                  ],
-                ),
-                // --- Participant Avatars (dummy representation) ---
-                Row(
-                  children: List.generate(
-                    billMembers.length.clamp(0, 3), // Show max 3 avatars
-                    (index) => const Padding(
-                      padding: EdgeInsets.only(left: 4.0),
-                      child: CircleAvatar(
-                        radius: 12,
-                        backgroundColor: Colors.brown, // Placeholder color
-                        child: Icon(
-                          Icons.person,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              billTotal.toString(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${billItems.length} items - ${billMembers.length} persons',
-                  style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                ),
-                SizedBox(
-                  height: 36,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: const Text('See Detail'),
-                  ),
-                ),
-              ],
+            const Text('Bill detail', style: TextStyle(color: Colors.grey)),
+            IconButton(
+              icon: const Icon(Icons.share_outlined, color: Colors.grey),
+              onPressed: () {
+                /* TODO: Implement share functionality */
+              },
             ),
           ],
         ),
+        Text(
+          billTitle,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Bill Date: $billDate',
+          style: const TextStyle(color: Colors.grey),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          billTotal.toString(),
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF00C853), // Green color
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue[800]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(color: Colors.grey[800]),
+                    children: [
+                      TextSpan(text: '3 friends are owing you '),
+                      TextSpan(
+                        text: billTotal.toString(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget buildParticipantsSection(billMembers) {
+    // final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'IDR ', decimalDigits: 0);
+    // final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+    return Column(
+      children: [
+        buildCollapsibleHeader('PARTICIPANTS ${billMembers.length}', true),
+        if (true)
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: billMembers.length,
+            itemBuilder: (context, index) {
+              return buildParticipantTile(
+                billMembers[index]['name'],
+                billMembers[index]['total'],
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget buildCollapsibleHeader(title, isExpanded) {
+    return InkWell(
+      onTap: () {},
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              color: Colors.grey,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildParticipantTile(participantName, participantTotal) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            // backgroundImage: AssetImage(participant.avatarUrl),
+            backgroundImage: AssetImage("https://picsum.photos/200"),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                participantName,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const Text(
+                'Bill Owner',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              // if (participant.isOwner)
+            ],
+          ),
+          const Spacer(),
+          Text(
+            participantTotal,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSplitResultSection(billMembers) {
+    return Column(
+      children: [
+        buildCollapsibleHeader('SPLIT RESULT', true),
+        if (true)
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: billMembers.length,
+            itemBuilder: (context, index) {
+              return buildSplitResultDetail(
+                billMembers[index]['name'],
+                billMembers[index]['total'],
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget buildSplitResultDetail(participantName, participantTotal) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                // backgroundImage: AssetImage(participant.avatarUrl),
+                backgroundImage: AssetImage('https://picsum.photos/200'),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "$participantName's total",
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  Text(
+                    participantTotal.toString(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // ...participant.items.map(
+          //   (item) => Padding(
+          //     padding: const EdgeInsets.only(left: 52, top: 8),
+          //     child: Row(
+          //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //       children: [
+          //         Text(item.name, style: const TextStyle(color: Colors.grey)),
+          //         Text(
+          //           'x${item.quantity}',
+          //           style: const TextStyle(color: Colors.grey),
+          //         ),
+          //         Text(currencyFormat.format(item.price)),
+          //       ],
+          //     ),
+          //   ),
+          // ),
+        ],
       ),
     );
   }

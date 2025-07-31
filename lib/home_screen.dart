@@ -12,8 +12,8 @@ List<Map<String, dynamic>> historySplitBil = [
     "date": DateTime.now(),
     "total": 10000,
     "members": [
-      {"name": "Budi", "email": "", "phone": "08123456789"},
-      {"name": "Hans", "email": "", "phone": "08123456789"},
+      {"name": "Budi", "email": "", "total": "123456"},
+      {"name": "Hans", "email": "", "total": "123456"},
     ],
   },
   {
@@ -22,8 +22,8 @@ List<Map<String, dynamic>> historySplitBil = [
     "date": DateTime.now(),
     "total": 10000,
     "members": [
-      {"name": "Budi", "email": "", "phone": "08123456789"},
-      {"name": "Hans", "email": "", "phone": "08123456789"},
+      {"name": "Budi", "email": "", "total": "123456"},
+      {"name": "Hans", "email": "", "total": "123456"},
     ],
   },
 ];
@@ -34,8 +34,8 @@ List<Map<String, dynamic>> activeSplitBill = [
     "date": DateTime.now(),
     "total": 123456,
     "members": [
-      {"name": "Budi", "email": "", "phone": "08123456789"},
-      {"name": "Hans", "email": "", "phone": "08123456789"},
+      {"name": "Budi", "email": "", "total": "123456"},
+      {"name": "Hans", "email": "", "total": "123456"},
     ],
   },
 ];
@@ -277,7 +277,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () {
                       Navigator.of(context).pushNamed(
                         'detail-split-bill',
-                        arguments: {'title': billTitle, 'subttitle': billTitle},
+                        arguments: {
+                          'title': billTitle,
+                          'date': billdate,
+                          'members': billMembers,
+                          'total': billTotal,
+                          // ignore: equal_keys_in_map
+                          'members': billItems,
+                        },
                       );
                     },
                     style: ElevatedButton.styleFrom(
