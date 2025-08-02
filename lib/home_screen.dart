@@ -80,22 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Split Bill'),
-        leading: const Icon(Icons.supervised_user_circle),
-        actions: [
-          InkWell(
-            onTap: () {
-              Navigator.of(context).pushNamed('checkout-screen');
-            },
-            child: Badge(
-              label: Text(counterCart),
-              child: const Icon(Icons.shopping_cart),
-            ),
-          ),
-          const SizedBox(width: 11),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Split Bill')),
       body: Column(
         children: [
           Row(
@@ -195,11 +180,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _pickImage,
+        onPressed: () {
+          Navigator.of(context).pushNamed('input-bill');
+        },
         shape: CircleBorder(),
         backgroundColor: const Color.fromARGB(255, 71, 216, 78),
         child: const Icon(Icons.add, color: Colors.white),
       ),
+      bottomNavigationBar: _buildNavigationBar(),
     );
   }
 
@@ -300,6 +288,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavigationBar() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: ElevatedButton(
+          onPressed: _pickImage,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            'Camera',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );

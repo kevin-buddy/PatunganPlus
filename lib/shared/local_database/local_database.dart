@@ -30,14 +30,8 @@ class LocalDatabase {
   Future<void> _runMigrations(Database db) async {
     await db.execute('''
       CREATE TABLE members (
-        nunitpk INTEGER PRIMARY KEY AUTOINCREMENT,
-        cfarmid TEXT NOT NULL,
-        cfarmername TEXT NOT NULL,
-        cfarmaddr TEXT,
-        dindate TEXT,
-        cinuserid TEXT,
-        dchdate TEXT,
-        cchuserid TEXT
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
       )
     ''');
   }
