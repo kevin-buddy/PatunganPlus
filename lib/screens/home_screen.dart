@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:patungan_plus/providers/main_controller.dart';
 
 int cartCounter = 0;
 String counterCart = '';
@@ -79,6 +81,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // final store = context.watch<MainController>();
+    // final filteredTransactions = store.transactions;
     return Scaffold(
       appBar: AppBar(title: const Text('Split Bill')),
       body: Column(
