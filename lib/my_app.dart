@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:patungan_plus/gradient_widget.dart';
 import 'package:patungan_plus/providers/main_controller.dart';
-import 'package:patungan_plus/screens/detail_bill_screen.dart';
 import 'package:patungan_plus/screens/home_screen.dart';
 import 'package:patungan_plus/screens/detail_split_bill_screen.dart';
 import 'package:patungan_plus/screens/input_bill_screen.dart';
@@ -24,7 +23,6 @@ class MyApp extends StatelessWidget {
           'home-screen': (context) => const HomeScreen(),
           'detail-split-bill': (context) => const DetailSplitBillScreen(),
           'input-bill': (context) => const InputBillScreen(),
-          'detail-bill-screen': (context) => const DetailBillScreen(),
         },
       ),
     );

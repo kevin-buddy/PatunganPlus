@@ -18,7 +18,9 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
   List<Participant> participants = [];
   bool isLoading = true;
   bool isViewMode = false;
-  String? selectedParticipantForItemId;
+
+  // Track which participant is currently selected for assigning items
+  int? selectedParticipantIndex;
 
   @override
   void didChangeDependencies() {
@@ -139,6 +141,8 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
                         assignedItems: [], // Initialize safely
                       ),
                     );
+                    // Optionally auto-select the newly added participant
+                    selectedParticipantIndex = participants.length - 1;
                   });
                   Navigator.pop(dialogContext);
                 } else {
@@ -161,70 +165,21 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
     );
   }
 
-  void _assignItemToParticipant(int itemIndex) {
-    if (participants.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add participants first')),
-      );
-      return;
+  void _removeParticipant(int index) {
+    try {
+      setState(() {
+        participants.removeAt(index);
+        // Fix selection index to handle array shift
+        if (selectedParticipantIndex == index) {
+          selectedParticipantIndex = null;
+        } else if (selectedParticipantIndex != null &&
+            selectedParticipantIndex! > index) {
+          selectedParticipantIndex = selectedParticipantIndex! - 1;
+        }
+      });
+    } catch (e) {
+      print("Error removing participant: $e");
     }
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Assign Item'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Select participant for: ${bill?.items[itemIndex].itemName}',
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: participants.length,
-                  itemBuilder: (listContext, index) {
-                    return ListTile(
-                      title: Text(participants[index].name),
-                      onTap: () {
-                        try {
-                          setState(() {
-                            final p = participants[index];
-                            if (!p.assignedItems.contains(itemIndex)) {
-                              // Use List.from to safely ensure we have a growable list
-                              final newAssignedItems = List<int>.from(
-                                p.assignedItems,
-                              );
-                              newAssignedItems.add(itemIndex);
-
-                              participants[index] = p.copyWith(
-                                assignedItems: newAssignedItems,
-                              );
-                            }
-                          });
-                          Navigator.pop(dialogContext);
-                        } catch (e) {
-                          print("Error assigning item: $e");
-                          Navigator.pop(dialogContext);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error assigning participant: $e'),
-                            ),
-                          );
-                        }
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -254,12 +209,13 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               buildBillHeader(bill!),
               const SizedBox(height: 24),
+              buildHorizontalParticipantsSection(),
+              const SizedBox(height: 16),
               buildBillItemsSection(bill!),
-              const SizedBox(height: 24),
-              buildParticipantsSection(),
               const SizedBox(height: 16),
               const Divider(thickness: 4, color: Color(0xFFF5F5F5)),
               const SizedBox(height: 16),
@@ -268,13 +224,6 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
           ),
         ),
       ),
-      floatingActionButton: isViewMode
-          ? null
-          : FloatingActionButton(
-              onPressed: _addParticipant,
-              backgroundColor: Colors.green,
-              child: const Icon(Icons.person_add),
-            ),
       bottomNavigationBar: isViewMode ? null : _buildSaveAction(),
     );
   }
@@ -326,7 +275,6 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
                       content: Text('Bill Split Finalized and Saved!'),
                     ),
                   );
-                  // Go back to the very first route (Home)
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 }
               } catch (e) {
@@ -388,42 +336,169 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
             color: Color(0xFF00C853),
           ),
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.blue[800]),
-              const SizedBox(width: 8),
-              Expanded(
-                child: RichText(
-                  text: TextSpan(
-                    style: TextStyle(color: Colors.grey[800]),
-                    children: [
-                      TextSpan(
-                        text: isViewMode
-                            ? '${participants.length} participant(s) split Rp ${bill.totalAmount.toStringAsFixed(0)}'
-                            : '${participants.length} participant(s) will split Rp ${bill.totalAmount.toStringAsFixed(0)}',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+      ],
+    );
+  }
+
+  Widget buildHorizontalParticipantsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        buildCollapsibleHeader('PARTICIPANTS (${participants.length})', true),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 105,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: isViewMode
+                ? participants.length
+                : participants.length + 1,
+            itemBuilder: (context, index) {
+              if (!isViewMode && index == participants.length) {
+                return _buildAddParticipantButton();
+              }
+              return _buildParticipantAvatar(index);
+            },
           ),
         ),
       ],
     );
   }
 
+  Widget _buildParticipantAvatar(int index) {
+    final participant = participants[index];
+    final isSelected = selectedParticipantIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        if (isViewMode) return;
+        setState(() {
+          selectedParticipantIndex = isSelected ? null : index;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(right: 16.0),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 65,
+                  height: 65,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? Colors.green : Colors.black,
+                      width: 1,
+                    ),
+                    color: isSelected
+                        ? Colors.green.withOpacity(0.2)
+                        : Colors.white,
+                  ),
+                  child: Center(
+                    child: Text(
+                      participant.name.isNotEmpty
+                          ? participant.name[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected
+                            ? Colors.green.shade800
+                            : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+                if (!isViewMode)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: GestureDetector(
+                      onTap: () => _removeParticipant(index),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: 65,
+              child: Text(
+                participant.name,
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddParticipantButton() {
+    return GestureDetector(
+      onTap: _addParticipant,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 16.0),
+        child: Column(
+          children: [
+            Container(
+              width: 65,
+              height: 65,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.black, width: 1),
+                color: Colors.white,
+              ),
+              child: const Center(
+                child: Text('+ Add', style: TextStyle(fontSize: 14)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text('', style: TextStyle(fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget buildBillItemsSection(BillModel bill) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         buildCollapsibleHeader('BILL ITEMS (${bill.items.length})', true),
+        if (!isViewMode)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Text(
+              selectedParticipantIndex != null
+                  ? 'Tap an item below to assign it to ${participants[selectedParticipantIndex!].name}.'
+                  : 'Select a participant above to start assigning items.',
+              style: TextStyle(
+                color: selectedParticipantIndex != null
+                    ? Colors.green.shade700
+                    : Colors.grey,
+                fontSize: 13,
+                fontWeight: selectedParticipantIndex != null
+                    ? FontWeight.w500
+                    : FontWeight.normal,
+              ),
+            ),
+          ),
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -438,209 +513,109 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
   }
 
   Widget buildBillItemTile(BillItems item, int itemIndex) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[300]!),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.itemName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Qty: ${item.quantity} x Rp ${item.price.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Rp ${item.totalPrice.toStringAsFixed(0)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            if (!isViewMode) ...[
-              const SizedBox(height: 8),
-              ElevatedButton.icon(
-                onPressed: () => _assignItemToParticipant(itemIndex),
-                icon: const Icon(Icons.person_add, size: 16),
-                label: const Text('Assign to participant'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[100],
-                  foregroundColor: Colors.green,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+    // Find who is assigned to this specific item
+    final assignedParticipants = participants
+        .where((p) => p.assignedItems.contains(itemIndex))
+        .toList();
 
-  Widget buildParticipantsSection() {
-    return Column(
-      children: [
-        buildCollapsibleHeader('PARTICIPANTS (${participants.length})', true),
-        if (participants.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              isViewMode
-                  ? 'No participants were recorded for this bill'
-                  : 'No participants added yet\nTap + to add participants',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          )
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: participants.length,
-            itemBuilder: (context, index) {
-              return buildParticipantTile(participants[index], index);
-            },
+    return GestureDetector(
+      onTap: () {
+        if (isViewMode || selectedParticipantIndex == null) return;
+        try {
+          setState(() {
+            final p = participants[selectedParticipantIndex!];
+            final newAssignedItems = List<int>.from(p.assignedItems);
+
+            // Toggle assignment
+            if (newAssignedItems.contains(itemIndex)) {
+              newAssignedItems.remove(itemIndex);
+            } else {
+              newAssignedItems.add(itemIndex);
+            }
+
+            participants[selectedParticipantIndex!] = p.copyWith(
+              assignedItems: newAssignedItems,
+            );
+          });
+        } catch (e) {
+          print("Error assigning item: $e");
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: Colors.black,
+              width: 1,
+            ), // Square styling as requested
           ),
-      ],
-    );
-  }
-
-  Widget buildParticipantTile(Participant participant, int index) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.green),
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.green[50],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.green,
-                  child: Text(
-                    participant.name[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.itemName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        participant.name,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
+                  Text(
+                    item.totalPrice.toStringAsFixed(0),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              if (assignedParticipants.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: assignedParticipants.map((p) {
+                    return Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.green, width: 1),
+                        color: Colors.green.withOpacity(0.2),
                       ),
-                      if (participant.phone.isNotEmpty)
-                        Text(
-                          participant.phone,
+                      child: Center(
+                        child: Text(
+                          p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
                           style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                if (!isViewMode)
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () {
-                      try {
-                        setState(() {
-                          participants.removeAt(index);
-                        });
-                      } catch (e) {
-                        print("Error removing participant: $e");
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                      }
-                    },
-                  ),
-              ],
-            ),
-            if (participant.assignedItems.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Assigned items:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    ...participant.assignedItems.map((itemIndex) {
-                      try {
-                        final item = bill!.items[itemIndex];
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            '• ${item.itemName}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        );
-                      } catch (e) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            '• Error loading item',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.red,
-                            ),
-                          ),
-                        );
-                      }
-                    }),
-                  ],
+                    );
+                  }).toList(),
                 ),
-              ),
+              ] else if (!isViewMode && selectedParticipantIndex != null) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Tap to assign',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -676,7 +651,13 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
     double total = 0;
     for (int itemIndex in participant.assignedItems) {
       if (itemIndex >= 0 && itemIndex < bill!.items.length) {
-        total += bill!.items[itemIndex].totalPrice;
+        // Calculate shares: split equally if multiple participants select the same item
+        int totalShares = participants
+            .where((p) => p.assignedItems.contains(itemIndex))
+            .length;
+        if (totalShares > 0) {
+          total += (bill!.items[itemIndex].totalPrice / totalShares);
+        }
       }
     }
     return total;
@@ -716,7 +697,7 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -732,7 +713,9 @@ class _DetailSplitBillScreenState extends State<DetailSplitBillScreen> {
                   radius: 18,
                   backgroundColor: Colors.green[100],
                   child: Text(
-                    participant.name[0].toUpperCase(),
+                    participant.name.isNotEmpty
+                        ? participant.name[0].toUpperCase()
+                        : '?',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.green,
