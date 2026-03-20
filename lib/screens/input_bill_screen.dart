@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:patungan_plus/models/bill.dart';
+import 'package:patungan_plus/models/bill_items.dart';
+import 'package:patungan_plus/providers/main_controller.dart';
+import 'package:provider/provider.dart';
 
-class BillItem {
+class ItemController {
   // Controllers to manage the text fields for this specific item
   final TextEditingController nameController = TextEditingController();
   final TextEditingController qtyController = TextEditingController(text: '1');
@@ -11,7 +15,7 @@ class BillItem {
   // A unique key to help Flutter identify this specific widget in the list
   final UniqueKey id = UniqueKey();
 
-  BillItem({
+  ItemController({
     String name = '',
     int qty = 1,
     double price = 0,
@@ -74,18 +78,15 @@ class _InputBillScreenState extends State<InputBillScreen> {
     text: '0',
   );
 
-  final List<BillItem> _items = [];
+  final List<ItemController> _items = [];
 
   @override
   void initState() {
     super.initState();
-    // Set initial date
-    // _dateController.text = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    // Set initial date to now
+    _dateController.text = DateTime.now().toIso8601String();
 
-    // // Add some initial items to match the screenshot
-    // _addInitialItems();
-
-    // // Add listeners to all controllers to recalculate the total on any change
+    // Add listeners to all controllers to recalculate the total on any change
     _overallDiscountController.addListener(_calculateTotal);
     _serviceChargeController.addListener(_calculateTotal);
     _taxController.addListener(_calculateTotal);
@@ -135,7 +136,6 @@ class _InputBillScreenState extends State<InputBillScreen> {
     );
     if (pickedDate != null) {
       setState(() {
-        // For simplicity, we keep the time as current time when date is picked
         _dateController.text = pickedDate.toString();
       });
     }
@@ -143,7 +143,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
 
   void _addNewItem() {
     setState(() {
-      final newItem = BillItem();
+      final newItem = ItemController();
       // Add listeners for the new item
       newItem.qtyController.addListener(_calculateTotal);
       newItem.priceController.addListener(_calculateTotal);
@@ -420,10 +420,85 @@ class _InputBillScreenState extends State<InputBillScreen> {
         width: double.infinity,
         height: 50,
         child: ElevatedButton(
-          onPressed: () {
-            Navigator.of(
-              context,
-            ).pushNamed('detail-split-bill', arguments: {'id': billId});
+          onPressed: () async {
+            // Validate inputs
+            if (_items.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please add at least one item')),
+              );
+              return;
+            }
+
+            if (_billTitleController.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter a bill title')),
+              );
+              return;
+            }
+
+            if (_dateController.text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please select a date')),
+              );
+              return;
+            }
+
+            // Convert ItemController list to BillItems list
+            final billItems = _items
+                .map(
+                  (item) => BillItems(
+                    transactionId: 0, // Will be set in DB
+                    itemName: item.nameController.text.trim(),
+                    quantity: item.quantity,
+                    price: item.price,
+                    totalPrice: item.total,
+                  ),
+                )
+                .toList();
+
+            // Calculate tax amount from the tax controller
+            final taxAmount = double.tryParse(_taxController.text) ?? 0;
+
+            try {
+              // Convert ItemController list to BillItems list
+              final billItems = _items
+                  .map(
+                    (item) => BillItems(
+                      transactionId: 0, // Will be set when finalized
+                      itemName: item.nameController.text.trim(),
+                      quantity: item.quantity,
+                      price: item.price,
+                      totalPrice: item.total,
+                    ),
+                  )
+                  .toList();
+
+              // Calculate tax amount from the tax controller
+              final taxAmount = double.tryParse(_taxController.text) ?? 0;
+
+              // Create temporary bill (not saved to DB yet)
+              final bill = BillModel(
+                date: DateTime.parse(_dateController.text),
+                merchantName: _billTitleController.text.trim(),
+                taxAmount: taxAmount,
+                totalAmount: billTotal,
+                items: billItems,
+              );
+
+              // Store temporarily in controller
+              Provider.of<MainController>(
+                context,
+                listen: false,
+              ).setTemporaryBill(bill);
+
+              // Navigate to split screen (no bill ID, will load from temporary storage)
+              Navigator.of(context).pushNamed('detail-split-bill');
+            } catch (e) {
+              print(e.toString());
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+            }
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
@@ -433,7 +508,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
             ),
           ),
           child: const Text(
-            'Next',
+            'Review & Split',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),

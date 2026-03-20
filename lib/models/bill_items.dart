@@ -1,39 +1,39 @@
 class BillItems {
   final int? id; // Auto-increment ID
-  final String billId;
+  final int transactionId;
   final String itemName; // Snapshot name
   final int quantity;
   final double price; // Snapshot price
-  final double discount;
+  final double totalPrice;
 
   BillItems({
     this.id,
-    required this.billId,
+    required this.transactionId,
     required this.itemName,
     required this.quantity,
     required this.price,
-    required this.discount,
+    required this.totalPrice,
   });
 
   // Convert for DB Insertion
   Map<String, dynamic> toMap() {
     return {
-      'bill_id': billId,
+      'transaction_id': transactionId,
       'item_name': itemName,
       'quantity': quantity,
       'price': price,
-      'discount': discount,
+      'total_price': totalPrice,
     };
   }
 
   factory BillItems.fromMap(Map<String, dynamic> map) {
     return BillItems(
       id: map['id'] as int?,
-      billId: map['bill_id'].toString(),
+      transactionId: map['transaction_id'] as int,
       itemName: map['item_name'] as String,
       price: (map['price'] as num).toDouble(),
       quantity: map['quantity'] as int,
-      discount: (map['discount'] as num).toDouble(),
+      totalPrice: (map['total_price'] as num).toDouble(),
     );
   }
 }
