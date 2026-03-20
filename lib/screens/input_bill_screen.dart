@@ -5,14 +5,12 @@ import 'package:patungan_plus/providers/main_controller.dart';
 import 'package:provider/provider.dart';
 
 class ItemController {
-  // Controllers to manage the text fields for this specific item
   final TextEditingController nameController = TextEditingController();
   final TextEditingController qtyController = TextEditingController(text: '1');
   final TextEditingController priceController = TextEditingController();
   final TextEditingController discountController = TextEditingController(
     text: '0',
   );
-  // A unique key to help Flutter identify this specific widget in the list
   final UniqueKey id = UniqueKey();
 
   ItemController({
@@ -27,30 +25,11 @@ class ItemController {
     discountController.text = discount.toStringAsFixed(0);
   }
 
-  // Helper getters to safely parse numbers from controllers
   double get price => double.tryParse(priceController.text) ?? 0;
   int get quantity => int.tryParse(qtyController.text) ?? 0;
   double get discount => double.tryParse(discountController.text) ?? 0;
-
-  // Calculate the total for this single item
   double get total => (price * quantity) - discount;
 }
-
-int cartCounter = 0;
-String counterCart = '';
-int tabActive = 0;
-List<Map<String, dynamic>> activeSplitBill = [
-  {
-    "id": 1,
-    "title": "Grab",
-    "date": DateTime.now(),
-    "total": 123456,
-    "members": [
-      {"name": "Budi", "email": "", "total": "123456"},
-      {"name": "Hans", "email": "", "total": "123456"},
-    ],
-  },
-];
 
 class InputBillScreen extends StatefulWidget {
   const InputBillScreen({super.key});
@@ -60,14 +39,14 @@ class InputBillScreen extends StatefulWidget {
 }
 
 class _InputBillScreenState extends State<InputBillScreen> {
-  int billId = 1;
   double billTotal = 0;
+  bool _isInitialized = false; // Flag to prevent re-initializing on rebuilds
+
   final TextEditingController _billTitleController = TextEditingController(
-    text: "Windy's",
+    text: "New Bill",
   );
   final TextEditingController _dateController = TextEditingController();
 
-  // Controllers for the summary fields
   final TextEditingController _overallDiscountController =
       TextEditingController(text: '0');
   final TextEditingController _serviceChargeController = TextEditingController(
@@ -83,10 +62,8 @@ class _InputBillScreenState extends State<InputBillScreen> {
   @override
   void initState() {
     super.initState();
-    // Set initial date to now
     _dateController.text = DateTime.now().toIso8601String();
 
-    // Add listeners to all controllers to recalculate the total on any change
     _overallDiscountController.addListener(_calculateTotal);
     _serviceChargeController.addListener(_calculateTotal);
     _taxController.addListener(_calculateTotal);
@@ -94,8 +71,59 @@ class _InputBillScreenState extends State<InputBillScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Parse arguments from OCR if they exist
+    if (!_isInitialized) {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+      if (args != null) {
+        if (args['merchantName'] != null) {
+          _billTitleController.text = args['merchantName'];
+        }
+
+        // Setup totals
+        if (args['tax'] != null && args['tax'] > 0) {
+          _taxController.text = (args['tax'] as double).toStringAsFixed(0);
+        }
+        if (args['serviceCharge'] != null && args['serviceCharge'] > 0) {
+          _serviceChargeController.text = (args['serviceCharge'] as double)
+              .toStringAsFixed(0);
+        }
+        if (args['discount'] != null && args['discount'] > 0) {
+          _overallDiscountController.text = (args['discount'] as double)
+              .toStringAsFixed(0);
+        }
+
+        // Setup items list
+        if (args['items'] != null) {
+          _items.clear();
+          final List<Map<String, dynamic>> scannedItems = args['items'];
+          for (var itemData in scannedItems) {
+            final newItem = ItemController(
+              name: itemData['name'] ?? '',
+              qty: itemData['qty'] ?? 1,
+              price: itemData['price'] ?? 0,
+            );
+            newItem.qtyController.addListener(_calculateTotal);
+            newItem.priceController.addListener(_calculateTotal);
+            newItem.discountController.addListener(_calculateTotal);
+            _items.add(newItem);
+          }
+        }
+      }
+      _isInitialized = true;
+
+      // Compute total with OCR data
+      // use Future.microtask to prevent setState during build phase
+      Future.microtask(() => _calculateTotal());
+    }
+  }
+
+  @override
   void dispose() {
-    // Clean up all controllers to prevent memory leaks
     _billTitleController.dispose();
     _dateController.dispose();
     _overallDiscountController.dispose();
@@ -144,7 +172,6 @@ class _InputBillScreenState extends State<InputBillScreen> {
   void _addNewItem() {
     setState(() {
       final newItem = ItemController();
-      // Add listeners for the new item
       newItem.qtyController.addListener(_calculateTotal);
       newItem.priceController.addListener(_calculateTotal);
       newItem.discountController.addListener(_calculateTotal);
@@ -155,9 +182,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
 
   void _removeItem(UniqueKey id) {
     setState(() {
-      // Find the item to remove
       final itemToRemove = _items.firstWhere((item) => item.id == id);
-      // Clean up its listeners before removing
       itemToRemove.qtyController.removeListener(_calculateTotal);
       itemToRemove.priceController.removeListener(_calculateTotal);
       itemToRemove.discountController.removeListener(_calculateTotal);
@@ -173,9 +198,10 @@ class _InputBillScreenState extends State<InputBillScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'New Bill',
+          'Edit Bill Details',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -183,7 +209,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Split Bill',
+              'Verify Scanned Data',
               style: TextStyle(
                 color: Colors.green,
                 fontWeight: FontWeight.bold,
@@ -191,7 +217,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Make sure to check that all items were read correctly',
+              'Make sure to check that all items were read correctly from the receipt.',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
@@ -201,6 +227,15 @@ class _InputBillScreenState extends State<InputBillScreen> {
             const Divider(height: 32),
 
             // --- Items List Section ---
+            if (_items.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16.0),
+                child: Text(
+                  "No items detected. Please add them manually.",
+                  style: TextStyle(color: Colors.orange),
+                ),
+              ),
+
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -256,7 +291,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
             textAlign: TextAlign.end,
             decoration: const InputDecoration(
               border: InputBorder.none,
-              hintText: 'Bill Title',
+              hintText: 'Merchant Name',
             ),
           ),
         ),
@@ -264,7 +299,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
     );
   }
 
-  Widget _itemInputRow(key, item, onRemove) {
+  Widget _itemInputRow(key, ItemController item, onRemove) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
@@ -285,7 +320,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
               Expanded(
                 flex: 3,
                 child: Text(
-                  item.total.toString(),
+                  item.total.toStringAsFixed(0),
                   textAlign: TextAlign.end,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
@@ -294,8 +329,8 @@ class _InputBillScreenState extends State<InputBillScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                onPressed: onRemove, // Simple action: remove on tap
+                icon: const Icon(Icons.close, color: Colors.grey),
+                onPressed: onRemove,
               ),
             ],
           ),
@@ -350,7 +385,10 @@ class _InputBillScreenState extends State<InputBillScreen> {
     return TextButton.icon(
       onPressed: _addNewItem,
       icon: const Icon(Icons.add, color: Colors.green),
-      label: const Text('Add More Item', style: TextStyle(color: Colors.green)),
+      label: const Text(
+        'Add Missing Item',
+        style: TextStyle(color: Colors.green),
+      ),
     );
   }
 
@@ -364,7 +402,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
       child: Row(
         children: [
           Icon(
-            isDiscount ? Icons.close : Icons.add,
+            isDiscount ? Icons.remove : Icons.add,
             color: Colors.grey,
             size: 16,
           ),
@@ -401,7 +439,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           Text(
-            billTotal.toString(),
+            'Rp ${billTotal.toStringAsFixed(0)}',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -431,33 +469,10 @@ class _InputBillScreenState extends State<InputBillScreen> {
 
             if (_billTitleController.text.trim().isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please enter a bill title')),
+                const SnackBar(content: Text('Please enter a merchant name')),
               );
               return;
             }
-
-            if (_dateController.text.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please select a date')),
-              );
-              return;
-            }
-
-            // Convert ItemController list to BillItems list
-            final billItems = _items
-                .map(
-                  (item) => BillItems(
-                    transactionId: 0, // Will be set in DB
-                    itemName: item.nameController.text.trim(),
-                    quantity: item.quantity,
-                    price: item.price,
-                    totalPrice: item.total,
-                  ),
-                )
-                .toList();
-
-            // Calculate tax amount from the tax controller
-            final taxAmount = double.tryParse(_taxController.text) ?? 0;
 
             try {
               // Convert ItemController list to BillItems list
@@ -473,12 +488,13 @@ class _InputBillScreenState extends State<InputBillScreen> {
                   )
                   .toList();
 
-              // Calculate tax amount from the tax controller
               final taxAmount = double.tryParse(_taxController.text) ?? 0;
+              final dateToSave =
+                  DateTime.tryParse(_dateController.text) ?? DateTime.now();
 
-              // Create temporary bill (not saved to DB yet)
+              // Create temporary bill
               final bill = BillModel(
-                date: DateTime.parse(_dateController.text),
+                date: dateToSave,
                 merchantName: _billTitleController.text.trim(),
                 taxAmount: taxAmount,
                 totalAmount: billTotal,
@@ -491,7 +507,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
                 listen: false,
               ).setTemporaryBill(bill);
 
-              // Navigate to split screen (no bill ID, will load from temporary storage)
+              // Navigate to split screen
               Navigator.of(context).pushNamed('detail-split-bill');
             } catch (e) {
               print(e.toString());
