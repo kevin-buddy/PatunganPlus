@@ -42,9 +42,7 @@ class _InputBillScreenState extends State<InputBillScreen> {
   double billTotal = 0;
   bool _isInitialized = false; // Flag to prevent re-initializing on rebuilds
 
-  final TextEditingController _billTitleController = TextEditingController(
-    text: "New Bill",
-  );
+  final TextEditingController _billTitleController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
 
   final TextEditingController _overallDiscountController =
@@ -62,7 +60,8 @@ class _InputBillScreenState extends State<InputBillScreen> {
   @override
   void initState() {
     super.initState();
-    _dateController.text = DateTime.now().toIso8601String();
+    // Split to only get the date part (yyyy-MM-dd)
+    _dateController.text = DateTime.now().toString().split(' ')[0];
 
     _overallDiscountController.addListener(_calculateTotal);
     _serviceChargeController.addListener(_calculateTotal);
@@ -95,6 +94,11 @@ class _InputBillScreenState extends State<InputBillScreen> {
         if (args['discount'] != null && args['discount'] > 0) {
           _overallDiscountController.text = (args['discount'] as double)
               .toStringAsFixed(0);
+        }
+        if (args['others'] != null && args['others'] > 0) {
+          _othersController.text = (args['others'] as double).toStringAsFixed(
+            0,
+          );
         }
 
         // Setup items list
@@ -158,13 +162,14 @@ class _InputBillScreenState extends State<InputBillScreen> {
   Future<void> _selectDate() async {
     DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
     );
     if (pickedDate != null) {
       setState(() {
-        _dateController.text = pickedDate.toString();
+        // Formats to yyyy-MM-dd by cutting off the time portion
+        _dateController.text = pickedDate.toString().split(' ')[0];
       });
     }
   }
@@ -273,27 +278,29 @@ class _InputBillScreenState extends State<InputBillScreen> {
   }
 
   Widget _buildBillInfoSection() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          flex: 3,
-          child: TextFormField(
-            controller: _dateController,
-            decoration: const InputDecoration(border: InputBorder.none),
-            readOnly: true,
-            onTap: _selectDate,
+        TextFormField(
+          controller: _dateController,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            isDense: true,
+            icon: Icon(Icons.calendar_today, color: Colors.grey, size: 20),
           ),
+          style: const TextStyle(color: Colors.grey, fontSize: 14),
+          readOnly: true,
+          onTap: _selectDate,
         ),
-        Expanded(
-          flex: 2,
-          child: TextFormField(
-            controller: _billTitleController,
-            textAlign: TextAlign.end,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Merchant Name',
-            ),
+        TextFormField(
+          controller: _billTitleController,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            hintText: 'Merchant Name',
+            isDense: true,
+            icon: Icon(Icons.store, color: Colors.black, size: 24),
           ),
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
       ],
     );

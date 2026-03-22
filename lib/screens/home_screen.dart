@@ -75,7 +75,10 @@ class _HomeScreenState extends State<HomeScreen> {
         inputImage,
       );
 
-      String extractedText = recognizedText.text;
+      // Use coordinate-based sorting instead of raw text
+      List<List<TextElement>> extractedText = _sortElementsToLines(
+        recognizedText,
+      );
       await textRecognizer.close();
 
       // Parse the raw text into receipt data
@@ -105,16 +108,71 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// A basic heuristic parser to extract receipt data from raw OCR text
-  Map<String, dynamic> _parseReceiptText(String text) {
-    final lines = text
-        .split('\n')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+  /// Groups scattered ML Kit elements into structured horizontal lines based on their bounding boxes
+  List<List<TextElement>> _sortElementsToLines(RecognizedText recognizedText) {
+    List<TextElement> elements = [];
 
+    // 1. Flatten all elements
+    for (TextBlock block in recognizedText.blocks) {
+      for (TextLine line in block.lines) {
+        for (TextElement element in line.elements) {
+          elements.add(element);
+        }
+      }
+    }
+
+    if (elements.isEmpty) return [];
+
+    // 2. Sort all elements by their Y-coordinate (top edge)
+    elements.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+
+    List<List<TextElement>> rows = [];
+    // Tolerance for how far apart words can be vertically and still be considered the same line.
+    // Receipts might be slightly tilted, so 10-15 pixels is usually a good threshold.
+    // const double yTolerance = 12.0;
+
+    // 3. Group into rows
+    for (var element in elements) {
+      bool addedToExistingRow = false;
+
+      for (var row in rows) {
+        // Calculate the average Y center of the current row
+        double rowTopY =
+            row.map((e) => e.boundingBox.top).reduce((a, b) => a + b) /
+            row.length;
+        double yTolerance =
+            row.map((e) => e.boundingBox.height).reduce((a, b) => a + b) /
+            row.length *
+            0.35; // 60% of average height
+        // If the element's center is within the tolerance of the row's center, add it
+        if ((element.boundingBox.top - rowTopY).abs() < yTolerance) {
+          row.add(element);
+          addedToExistingRow = true;
+          break;
+        }
+      }
+
+      // If it doesn't fit in any existing row, create a new row
+      if (!addedToExistingRow) {
+        rows.add([element]);
+      }
+    }
+
+    // 4. Sort each row horizontally by X-coordinate (left edge) and join into text
+    for (var row in rows) {
+      row.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+      // print(row.map((e) => e.text).join(' ')); // Debug: print each row's text
+    }
+    return rows;
+  }
+
+  /// A basic heuristic parser to extract receipt data from raw OCR text
+  Map<String, dynamic> _parseReceiptText(List<List<TextElement>> lines) {
     // Assume the first or second line is the Merchant Name
-    String merchantName = lines.isNotEmpty ? lines[0] : "Scanned Bill";
+
+    String merchantName = lines.isNotEmpty
+        ? lines[0].map((e) => e.text).join(' ')
+        : "Scanned Bill";
     if (merchantName.toLowerCase().contains('jl') ||
         merchantName.toLowerCase().contains('pt')) {
       // If first line looks like an address/company, check others, but stick to first line as fallback
@@ -124,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
     double taxAmount = 0;
     double serviceCharge = 0;
     double discount = 0;
+    double othersAmount = 0;
     String? detectedDate;
 
     // Matches numbers that look like Indonesian prices: 25.000, 25,000, 150000
@@ -132,18 +191,48 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     final dateRegex = RegExp(r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}');
 
-    for (var line in lines) {
-      final lowerLine = line.toLowerCase();
+    int indexStartMetaData = 0;
+    int indexEndMetaData = lines.length;
+    for (int i = 0; i < lines.length; i++) {
+      String rowText = lines[i].map((e) => e.text).join(' ').toLowerCase();
+      // print("Analyzing Line: '$rowText' for metadata boundaries");
+      bool isStartMetaData =
+          rowText.contains('meja') ||
+          rowText.contains('table') ||
+          rowText.contains('kasir') ||
+          rowText.contains('cashier') ||
+          rowText.contains('pax') ||
+          rowText.contains('guest') ||
+          rowText.contains('penjualan') ||
+          rowText.contains('info') ||
+          rowText.contains('jam') ||
+          rowText.contains('tanggal');
+      bool isEndMetaData =
+          rowText.contains('pembulatan') ||
+          rowText.contains('rounding') ||
+          rowText.contains('edc') ||
+          rowText.contains('bri') ||
+          rowText.contains('bca') ||
+          rowText.contains('total');
+      if (isStartMetaData) {
+        indexStartMetaData = i;
+      }
+      if (isEndMetaData && i < indexEndMetaData) {
+        indexEndMetaData = i;
+      }
+    }
 
-      // Look for dates
+    for (int i = 0; i < lines.length; i++) {
+      String rowText = lines[i].map((e) => e.text).join(' ').toLowerCase();
+
+      // print("Parsed Line: '$rowText");
       if (detectedDate == null) {
-        final dateMatch = dateRegex.firstMatch(line);
+        final dateMatch = dateRegex.firstMatch(rowText);
         if (dateMatch != null) detectedDate = dateMatch.group(0);
       }
-
-      final match = priceRegex.firstMatch(line);
-
-      if (match != null) {
+      final lowerLine = rowText;
+      final match = priceRegex.firstMatch(rowText);
+      if (match != null && i > indexStartMetaData) {
         // Clean up the price string to parse it to a double
         String priceStr = match
             .group(1)!
@@ -152,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
         double price = double.tryParse(priceStr) ?? 0;
 
         // The item name is usually whatever comes before the price
-        String namePart = line.substring(0, match.start).trim();
+        String namePart = rowText.substring(0, match.start).trim();
 
         if (lowerLine.contains('total') && !lowerLine.contains('sub')) {
           // Skip total lines for items list
@@ -167,6 +256,9 @@ class _HomeScreenState extends State<HomeScreen> {
         } else if (lowerLine.contains('discount') ||
             lowerLine.contains('diskon')) {
           discount = price;
+        } else if (lowerLine.contains('pembulatan') ||
+            lowerLine.contains('rounding')) {
+          othersAmount = price;
         } else if (namePart.isNotEmpty && price > 0 && namePart.length > 2) {
           // Assume it's an item if it has a valid name and price
           int qty = 1;
@@ -180,9 +272,37 @@ class _HomeScreenState extends State<HomeScreen> {
             // Often receipts show the total row price. If so, single item price is total/qty
             price = price / qty;
           }
+          bool isJustNumbersAndSymbols = RegExp(
+            r'^[\d.,\s]*$',
+          ).hasMatch(namePart);
 
+          if (namePart.isEmpty || isJustNumbersAndSymbols) {
+            if (i > 0) {
+              namePart = lines[i - 1]
+                  .map((e) => e.text)
+                  .join(' ')
+                  .toLowerCase(); // Fallback to the previous line
+            }
+          }
+          bool isMetaData =
+              rowText.contains('meja') ||
+              rowText.contains('table') ||
+              rowText.contains('kasir') ||
+              rowText.contains('cashier') ||
+              rowText.contains('pax') ||
+              rowText.contains('guest') ||
+              rowText.contains('penjualan') ||
+              rowText.contains('info') ||
+              rowText.contains('jam') ||
+              rowText.contains('tanggal') ||
+              rowText.contains('pembulatan') ||
+              rowText.contains('rounding') ||
+              rowText.contains('edc') ||
+              rowText.contains('bri') ||
+              rowText.contains('bca') ||
+              rowText.contains('total');
           // Filter out random short strings that might be noise
-          if (namePart.length > 2) {
+          if (namePart.length > 2 && !isMetaData) {
             items.add({'name': namePart, 'qty': qty, 'price': price});
           }
         }
@@ -196,6 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'tax': taxAmount,
       'serviceCharge': serviceCharge,
       'discount': discount,
+      'others': othersAmount,
     };
   }
 
